@@ -28,7 +28,10 @@ value to `your_desired_server_name` from step one.
 3. In root directory, run `composer install`.
 4. In root directory, run `docker-compose up`.
    
-Now you can work in `app` folder. Any changes will be synced with Docker container.
+Now you can work in `app` folder. Any changes will be synced with Docker container.  
+
+In browser, open `localhost:8080`
 
 ## Production
-`docker-compose -f docker-compose.prod.yml up`
+1. Run `docker-compose -f docker-compose.prod.yml up`  
+2. In browser, open `localhost:8080`
