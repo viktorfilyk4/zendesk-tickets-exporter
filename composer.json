@@ -2,5 +2,10 @@
     "name": "viktorfilyk/relokia-test-assignment",
     "require": {
         "guzzlehttp/guzzle": "^7.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "App\\": "app/src/"
+        }
     }
 }

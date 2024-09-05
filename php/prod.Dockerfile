@@ -18,4 +18,7 @@ RUN composer update
 RUN docker-php-ext-install opcache
 COPY php/opcache.ini /usr/local/etc/php/conf.d/opcache.ini
 
-COPY ./app/ /var/www/html/
+COPY ./app/ /var/www/app/
+
+# Give user `www-data` access to create files in `/var/www/app`
+RUN mkdir -p /var/www/app && chown -R www-data:www-data /var/www/app
