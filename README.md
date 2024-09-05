@@ -24,7 +24,7 @@ Optionally, enable `Run > Break at first line in PHP scripts`.
 (If you are on Linux, you may also need to uncomment `extra_hosts` in `docker-compose.yml`)  
 
 2. Rename `.env.example` to `.env`. Set `PHPSTORM_SERVER_NAME` 
-value to `your_desired_server_name` from step 1.
+value to `your_desired_server_name` from step one.
 3. In root directory, run `composer install`.
 4. In root directory, run `docker-compose up`.
    
