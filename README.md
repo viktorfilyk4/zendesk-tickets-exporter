@@ -16,7 +16,7 @@ Add server with next params:
 - Host: localhost
 - Port: 8080
 - Debugger: XDebug
-- Enable checkbox 'Use path mappings...'. Here, map local `app` directory with `/var/www/html`
+- Enable checkbox 'Use path mappings...'. Here, map local `app` directory with `/var/www/app`
 - Apply and save  
 ```
 In PHPStorm, enable `Run > Start listening for PHP Debug Connections`.  
