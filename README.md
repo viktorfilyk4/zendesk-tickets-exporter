@@ -35,4 +35,4 @@ Set other variables with your config.
 2. Run `docker-compose -f docker-compose.prod.yml up`.
 3. In browser, open `localhost:8080`. The program will generate `tickets.csv` file in `app/public` folder inside Docker container.
 4. Copy file from container to host.  
-Run `docker cp CONTAINER_ID:/var/www/app/public/tickets.csv /app/public`
+Run `docker cp CONTAINER_ID:/var/www/app/public/tickets.csv ./app/public`
