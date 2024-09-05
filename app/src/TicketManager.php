@@ -56,7 +56,7 @@ class TicketManager
             $ticket['organization']['name'] ?? '',
             implode('; ', array_map(function ($comment) {
                 return $comment['body'];
-            }, $ticket['comments'] ?? [])) // Comments
+            }, $ticket['comments'] ?? []))
         ];
     }
 }
