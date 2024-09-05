@@ -1,5 +1,5 @@
 <?php
-//require '../vendor/autoload.php';
+require '../vendor/autoload.php';
 //use GuzzleHttp\Client;
 //
 //$client = new Client([
@@ -19,4 +19,6 @@
 //
 //require './person.php';
 //var_dump(new Person('Viktor', 25));
+var_dump('Hello world!');
+$message = 'Hello world!';
 phpinfo();

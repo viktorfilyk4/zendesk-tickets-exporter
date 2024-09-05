@@ -18,7 +18,3 @@ RUN composer update
 RUN pecl install xdebug-3.1.5 \
     && docker-php-ext-enable xdebug
 COPY php/xdebug.ini "${PHP_INI_DIR}/conf.d"
-
-
-
-

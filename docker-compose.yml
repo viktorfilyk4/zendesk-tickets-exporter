@@ -21,6 +21,8 @@ services:
     volumes:
       - ./app/:/var/www/html/
       - ./logs/php.log:/var/log/fpm-php.www.log
+    environment:
+      PHP_IDE_CONFIG: "serverName=${PHPSTORM_SERVER_NAME}"
 #    extra_hosts:
 #      - "host.docker.internal:host-gateway" # for Linux
 networks:
