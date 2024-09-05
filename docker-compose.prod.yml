@@ -15,6 +15,7 @@ services:
       dockerfile: php/prod.Dockerfile
     networks:
       - internal
+    env_file: .env
 
 networks:
   internal:

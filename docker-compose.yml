@@ -10,7 +10,7 @@ services:
     networks:
       - internal
     volumes:
-      - ./app:/var/www/html/
+      - ./app:/var/www/app/
       - ./logs/nginx:/var/log/nginx/
   php:
     build:
@@ -19,10 +19,11 @@ services:
     networks:
       - internal
     volumes:
-      - ./app/:/var/www/html/
+      - ./app/:/var/www/app/
       - ./logs/php.log:/var/log/fpm-php.www.log
     environment:
       PHP_IDE_CONFIG: "serverName=${PHPSTORM_SERVER_NAME}"
+    env_file: .env
 #    extra_hosts:
 #      - "host.docker.internal:host-gateway" # for Linux
 networks:
