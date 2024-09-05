@@ -8,7 +8,7 @@
 - PHPStorm (for development only)
 
 ## Development
-1. In development, we use XDebug for debuging purposes.  
+1. In development, use XDebug for debuging purposes.  
 In PHPStorm, open `Settings > PHP > Servers`.
 Add server with next params:
 ```
