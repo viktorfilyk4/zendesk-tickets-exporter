@@ -1,0 +1,6 @@
+{
+    "name": "viktorfilyk/relokia-test-assignment",
+    "require": {
+        "guzzlehttp/guzzle": "^7.0"
+    }
+}

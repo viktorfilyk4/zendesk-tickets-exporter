@@ -1,0 +1,28 @@
+version: "3"
+
+services:
+  nginx:
+    build:
+      context: .
+      dockerfile: nginx/Dockerfile
+    ports:
+      - "8080:80"
+    networks:
+      - internal
+    volumes:
+      - ./app:/var/www/html/
+      - ./logs/nginx:/var/log/nginx/
+  php:
+    build:
+      context: .
+      dockerfile: php/Dockerfile
+    networks:
+      - internal
+    volumes:
+      - ./app/:/var/www/html/
+      - ./logs/php.log:/var/log/fpm-php.www.log
+#    extra_hosts:
+#      - "host.docker.internal:host-gateway" # for Linux
+networks:
+  internal:
+    driver: bridge
