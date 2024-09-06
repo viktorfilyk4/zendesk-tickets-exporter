@@ -3,3 +3,4 @@
 .env
 *.csv
 .DS_Store
+*.cache
