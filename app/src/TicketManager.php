@@ -2,6 +2,8 @@
 
 namespace App;
 
+use GuzzleHttp\Promise;
+
 class TicketManager
 {
     private $zendeskApiClient;
@@ -25,16 +27,50 @@ class TicketManager
 
         $page = 1;
         $perPage = 100;
+        $hasMorePages = true;
 
-        do {
-            $tickets = $this->zendeskApiClient->getTickets($page, $perPage);
+        while ($hasMorePages) {
+            $promises = [];
 
-            foreach ($tickets['tickets'] as $ticket) {
-                $this->csvWriter->writeRow($this->formatTicket($ticket));
+            for ($i = 0; $i < 5; $i++) {
+                $promises[] = $this->zendeskApiClient->getAsyncTickets($page, $perPage);
             }
 
-            $page++;
-        } while (!empty($tickets['tickets']));
+            $results = Promise\Utils::settle($promises)->wait();
+
+            foreach ($results as $result) {
+                if ($result['state'] === 'fulfilled') {
+                    $response = $result['value'];
+                    $data = json_decode($response->getBody(), true);
+                    $tickets = $data['tickets'] ?? [];
+
+                    if (count($tickets) > 0) {
+                        foreach ($tickets as $ticket) {
+                            $this->csvWriter->writeRow($this->formatTicket($ticket));
+                        }
+                    }
+
+                    $hasMorePages = isset($data['next_page']);
+                } elseif ($result['state'] === 'rejected') {
+
+                }
+            }
+        }
+
+
+
+//        $page = 1;
+//        $perPage = 100;
+//
+//        do {
+//            $tickets = $this->zendeskApiClient->getTickets($page, $perPage);
+//
+//            foreach ($tickets['tickets'] as $ticket) {
+//                $this->csvWriter->writeRow($this->formatTicket($ticket));
+//            }
+//
+//            $page++;
+//        } while (!empty($tickets['tickets']));
     }
 
     private function formatTicket(array $ticket): array
@@ -46,7 +82,7 @@ class TicketManager
             $ticket['priority'],
             $ticket['assignee_id'],
             $ticket['assignee']['name'] ?? '',
-            $ticket['assignee']['email'] ?? '',
+            $ticket['assignee_email'],
             $ticket['requester_id'],
             $ticket['requester']['name'] ?? '',
             $ticket['requester']['email'] ?? '',

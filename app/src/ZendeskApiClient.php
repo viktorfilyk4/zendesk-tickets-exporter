@@ -3,6 +3,7 @@
 namespace App;
 
 use GuzzleHttp\Client;
+use GuzzleHttp\Promise;
 
 class ZendeskApiClient
 {
@@ -22,15 +23,13 @@ class ZendeskApiClient
         ]);
     }
 
-    public function getTickets(int $page = 1, int $perPage = 100)
+    public function getAsyncTickets(int $page, int $perPage = 100): Promise\PromiseInterface
     {
-        $response = $this->client->get("tickets.json", [
+        return $this->client->getAsync("tickets.json", [
             'query' => [
                 'page' => $page,
                 'per_page' => $perPage
             ]
         ]);
-
-        return json_decode($response->getBody(), true);
     }
 }
