@@ -3,12 +3,12 @@
 namespace App;
 
 use GuzzleHttp\Promise;
-use React\Promise\PromiseInterface;
 
 class TicketManager
 {
-    private $zendeskApiClient;
-    private $csvWriter;
+    private ZendeskApiClient $zendeskApiClient;
+    private CSVWriter $csvWriter;
+    const NUMBER_OF_CONCURRENT_REQUESTS = 5;
 
     public function __construct(ZendeskApiClient $zendeskApiClient, CSVWriter $csvWriter)
     {
@@ -22,68 +22,50 @@ class TicketManager
             'Ticket ID', 'Description', 'Status', 'Priority', 'Agent ID', 'Agent Name', 'Agent Email',
             'Contact ID', 'Contact Name', 'Contact Email', 'Group ID', 'Group Name', 'Company ID',
             'Company Name', 'Comments'
-        ]; //15
+        ];
 
         $this->csvWriter->writeHeaders($headers);
 
-        // 1066 all tickets
         $page = 1;
-        $perPage = 100;
+        $perPage = 100; // Zendesk limit per page
         $hasMorePages = true;
 
-        $client = $this->zendeskApiClient->get_client();
-
         while ($hasMorePages) {
-            for ($i = 0; $i < 5; $i++) {
-                $promises[] = $client->getAsync("tickets.json", [
-                    'query' => [
-                        'page' => $page++,
-                        'per_page' => $perPage
-                    ]
-                ]);
+            for ($i = 0; $i < self::NUMBER_OF_CONCURRENT_REQUESTS; $i++) {
+                $promises[] = $this->zendeskApiClient->sendAsyncRequest("tickets", $page++, $perPage);
             }
 
-            $promisesResults = [];
             try {
-                $promisesResults = Promise\Utils::unwrap($promises); // here PHP call stack waits
+                $promisesResults = Promise\Utils::unwrap($promises);
             } catch (\Throwable $e) {
-                echo $e->getMessage();
+                echo 'Could not send requests.<br>';
+                return;
             }
 
-//            $decodedResult = null;
-            // big block I see in browser
             foreach ($promisesResults as $result) {
                 $resultContent = $result->getBody()->getContents();
                 $decodedResult = json_decode($resultContent, true);
                 $tickets = $decodedResult['tickets'] ?? [];
 
-                $temp = false;
-                $formattedTicket = [];
                 if (count($tickets) > 0) {
                     foreach ($tickets as $ticket) {
+                        // make here parallel requests to Users (Agent and Contact), Groups, Organizations API
+//                        $users[] = $this->zendeskApiClient->sendAsyncRequest('users');
+//                        Promise\Utils::unwrap()
+
                         $formattedTicket = $this->formatTicket($ticket);
-                        if ($formattedTicket[0] === 500) {
-                            $temp = true;
-                        }
                         $this->csvWriter->writeRow($formattedTicket);
                     }
-                }
-                if ($temp) {
-//                    var_dump($decodedResult);
-                    var_dump(isset($decodedResult['next_page']));
-                    // only writes 500 tickets to CSV file ???
-                    // PUT DEBUGGER HERE
                 }
                 $hasMorePages = isset($decodedResult['next_page']);
             }
 
             if (!$hasMorePages) {
-                var_dump('inside hasMorePages break');
                 break;
             }
         }
 
-        var_dump('Done');
+        echo 'Tickets have been written in file.<br>';
     }
 
     private function formatTicket(array $ticket): array
@@ -93,12 +75,12 @@ class TicketManager
             $ticket['description'],
             $ticket['status'],
             $ticket['priority'],
-            $ticket['assignee_id'],
-            $ticket['assignee']['name'] ?? '',
-            $ticket['assignee_email'],
+            $ticket['assignee_id'], // agent id
+            $ticket['recipient'], // agent name
+            $ticket['recipient'], // agent email
             $ticket['requester_id'],
-            $ticket['requester']['name'] ?? '',
-            $ticket['requester']['email'] ?? '',
+            $ticket['requester']['name'] ?? '', // Contacts API
+            $ticket['requester']['email'] ?? '', // Contacts API
             $ticket['group_id'],
             $ticket['group']['name'] ?? '',
             $ticket['organization_id'],

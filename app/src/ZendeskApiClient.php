@@ -3,7 +3,7 @@
 namespace App;
 
 use GuzzleHttp\Client;
-use GuzzleHttp\Promise;
+use GuzzleHttp\Promise\PromiseInterface;
 
 class ZendeskApiClient
 {
@@ -23,8 +23,13 @@ class ZendeskApiClient
         ]);
     }
 
-    public function get_client(): Client
+    public function sendAsyncRequest(string $path, int $page, int $perPage): PromiseInterface
     {
-        return $this->client;
+        return $this->client->getAsync($path, [
+            'query' => [
+                'page' => $page,
+                'per_page' => $perPage
+            ]
+        ]);
     }
 }
