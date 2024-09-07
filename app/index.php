@@ -1,4 +1,4 @@
-<?php
+<?php declare(strict_types=1);
 
 require '../vendor/autoload.php';
 
@@ -24,4 +24,4 @@ $ticketManager->exportTicketsToCSV();
 
 $csvWriter->close();
 
-echo "Tickets are exported to {$csvFilePath}\n";
+//echo "Tickets are exported to {$csvFilePath}\n";

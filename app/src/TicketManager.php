@@ -3,6 +3,7 @@
 namespace App;
 
 use GuzzleHttp\Promise;
+use React\Promise\PromiseInterface;
 
 class TicketManager
 {
@@ -21,56 +22,68 @@ class TicketManager
             'Ticket ID', 'Description', 'Status', 'Priority', 'Agent ID', 'Agent Name', 'Agent Email',
             'Contact ID', 'Contact Name', 'Contact Email', 'Group ID', 'Group Name', 'Company ID',
             'Company Name', 'Comments'
-        ];
+        ]; //15
 
         $this->csvWriter->writeHeaders($headers);
 
+        // 1066 all tickets
         $page = 1;
         $perPage = 100;
         $hasMorePages = true;
 
-        while ($hasMorePages) {
-            $promises = [];
+        $client = $this->zendeskApiClient->get_client();
 
+        while ($hasMorePages) {
             for ($i = 0; $i < 5; $i++) {
-                $promises[] = $this->zendeskApiClient->getAsyncTickets($page, $perPage);
+                $promises[] = $client->getAsync("tickets.json", [
+                    'query' => [
+                        'page' => $page++,
+                        'per_page' => $perPage
+                    ]
+                ]);
             }
 
-            $results = Promise\Utils::settle($promises)->wait();
+            $promisesResults = [];
+            try {
+                $promisesResults = Promise\Utils::unwrap($promises); // here PHP call stack waits
+            } catch (\Throwable $e) {
+                echo $e->getMessage();
+            }
 
-            foreach ($results as $result) {
-                if ($result['state'] === 'fulfilled') {
-                    $response = $result['value'];
-                    $data = json_decode($response->getBody(), true);
-                    $tickets = $data['tickets'] ?? [];
+//            $decodedResult = null;
+            // big block I see in browser
+            foreach ($promisesResults as $result) {
+                $resultContent = $result->getBody()->getContents();
+                $decodedResult = json_decode($resultContent, true);
+                $tickets = $decodedResult['tickets'] ?? [];
 
-                    if (count($tickets) > 0) {
-                        foreach ($tickets as $ticket) {
-                            $this->csvWriter->writeRow($this->formatTicket($ticket));
+                $temp = false;
+                $formattedTicket = [];
+                if (count($tickets) > 0) {
+                    foreach ($tickets as $ticket) {
+                        $formattedTicket = $this->formatTicket($ticket);
+                        if ($formattedTicket[0] === 500) {
+                            $temp = true;
                         }
+                        $this->csvWriter->writeRow($formattedTicket);
                     }
-
-                    $hasMorePages = isset($data['next_page']);
-                } elseif ($result['state'] === 'rejected') {
-
                 }
+                if ($temp) {
+//                    var_dump($decodedResult);
+                    var_dump(isset($decodedResult['next_page']));
+                    // only writes 500 tickets to CSV file ???
+                    // PUT DEBUGGER HERE
+                }
+                $hasMorePages = isset($decodedResult['next_page']);
+            }
+
+            if (!$hasMorePages) {
+                var_dump('inside hasMorePages break');
+                break;
             }
         }
 
-
-
-//        $page = 1;
-//        $perPage = 100;
-//
-//        do {
-//            $tickets = $this->zendeskApiClient->getTickets($page, $perPage);
-//
-//            foreach ($tickets['tickets'] as $ticket) {
-//                $this->csvWriter->writeRow($this->formatTicket($ticket));
-//            }
-//
-//            $page++;
-//        } while (!empty($tickets['tickets']));
+        var_dump('Done');
     }
 
     private function formatTicket(array $ticket): array

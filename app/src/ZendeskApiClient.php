@@ -7,9 +7,9 @@ use GuzzleHttp\Promise;
 
 class ZendeskApiClient
 {
-    private $client;
-    private $auth;
-    private $baseUri;
+    private Client $client;
+    private array $auth;
+    private string $baseUri;
 
     public function __construct(string $baseUri, string $email, string $apiToken)
     {
@@ -23,13 +23,8 @@ class ZendeskApiClient
         ]);
     }
 
-    public function getAsyncTickets(int $page, int $perPage = 100): Promise\PromiseInterface
+    public function get_client(): Client
     {
-        return $this->client->getAsync("tickets.json", [
-            'query' => [
-                'page' => $page,
-                'per_page' => $perPage
-            ]
-        ]);
+        return $this->client;
     }
 }
