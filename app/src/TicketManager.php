@@ -2,10 +2,13 @@
 
 namespace App;
 
+use GuzzleHttp\Promise;
+
 class TicketManager
 {
-    private $zendeskApiClient;
-    private $csvWriter;
+    private ZendeskApiClient $zendeskApiClient;
+    private CSVWriter $csvWriter;
+    const NUMBER_OF_CONCURRENT_REQUESTS = 5;
 
     public function __construct(ZendeskApiClient $zendeskApiClient, CSVWriter $csvWriter)
     {
@@ -24,39 +27,65 @@ class TicketManager
         $this->csvWriter->writeHeaders($headers);
 
         $page = 1;
-        $perPage = 100;
+        $perPage = 100; // Zendesk limit per page
+        $hasMorePages = true;
 
-        do {
-            $tickets = $this->zendeskApiClient->getTickets($page, $perPage);
-
-            foreach ($tickets['tickets'] as $ticket) {
-                $this->csvWriter->writeRow($this->formatTicket($ticket));
+        while ($hasMorePages) {
+            for ($i = 0; $i < self::NUMBER_OF_CONCURRENT_REQUESTS; $i++) {
+                $promises[] = $this
+                        ->zendeskApiClient
+                        ->sendAsyncRequest("tickets?page=$page&per_page=$perPage");
+                $page++;
             }
 
-            $page++;
-        } while (!empty($tickets['tickets']));
+            try {
+                $promisesResults = Promise\Utils::unwrap($promises);
+            } catch (\Throwable $e) {
+                echo 'Could not send requests.<br>';
+                return;
+            }
+
+            foreach ($promisesResults as $result) {
+                $resultContent = $result->getBody()->getContents();
+                $decodedResult = json_decode($resultContent, true);
+                $tickets = $decodedResult['tickets'] ?? [];
+
+                if (count($tickets) > 0) {
+                    foreach ($tickets as $ticket) {
+                        $formattedTicket = $this->formatTicket($ticket);
+                        $this->csvWriter->writeRow($formattedTicket);
+                    }
+                }
+                $hasMorePages = isset($decodedResult['next_page']);
+            }
+
+            if (!$hasMorePages) {
+                break;
+            }
+        }
+
+        echo 'Tickets have been written in file.<br>';
     }
 
     private function formatTicket(array $ticket): array
     {
+        // TODO: Refactor code to fulfill fields' values with `must be`
         return [
             $ticket['id'],
             $ticket['description'],
             $ticket['status'],
             $ticket['priority'],
-            $ticket['assignee_id'],
-            $ticket['assignee']['name'] ?? '',
-            $ticket['assignee']['email'] ?? '',
-            $ticket['requester_id'],
-            $ticket['requester']['name'] ?? '',
-            $ticket['requester']['email'] ?? '',
+            $ticket['assignee_id'], // Agent ID
+            '', // Must be Agent name
+            '', // Must be Agent email
+            $ticket['requester_id'], // Contact ID
+            '', // Must be Contact name
+            '', // Must be Contact email
             $ticket['group_id'],
-            $ticket['group']['name'] ?? '',
-            $ticket['organization_id'],
-            $ticket['organization']['name'] ?? '',
-            implode('; ', array_map(function ($comment) {
-                return $comment['body'];
-            }, $ticket['comments'] ?? []))
+            '', // Must be Group name,
+            $ticket['organization_id'], // Company ID
+            '', // Must be Company name
+            '' // Must be Comments
         ];
     }
 }

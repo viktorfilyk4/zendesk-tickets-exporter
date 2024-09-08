@@ -4,27 +4,27 @@ namespace App;
 
 class CSVWriter
 {
-    private $filePath;
-    private $file;
+    private string $filePath;
+    private $filePointer;
 
     public function __construct(string $filePath)
     {
         $this->filePath = $filePath;
-        $this->file = fopen($filePath, 'w');
+        $this->filePointer = fopen($filePath, 'w');
     }
 
     public function writeHeaders(array $headers)
     {
-        fputcsv($this->file, $headers);
+        fputcsv($this->filePointer, $headers);
     }
 
     public function writeRow(array $row)
     {
-        fputcsv($this->file, $row);
+        fputcsv($this->filePointer, $row);
     }
 
     public function close()
     {
-        fclose($this->file);
+        fclose($this->filePointer);
     }
 }
