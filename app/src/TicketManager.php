@@ -32,7 +32,10 @@ class TicketManager
 
         while ($hasMorePages) {
             for ($i = 0; $i < self::NUMBER_OF_CONCURRENT_REQUESTS; $i++) {
-                $promises[] = $this->zendeskApiClient->sendAsyncRequest("tickets", $page++, $perPage);
+                $promises[] = $this
+                        ->zendeskApiClient
+                        ->sendAsyncRequest("tickets?page=$page&per_page=$perPage");
+                $page++;
             }
 
             try {
@@ -49,10 +52,6 @@ class TicketManager
 
                 if (count($tickets) > 0) {
                     foreach ($tickets as $ticket) {
-                        // make here parallel requests to Users (Agent and Contact), Groups, Organizations API
-//                        $users[] = $this->zendeskApiClient->sendAsyncRequest('users');
-//                        Promise\Utils::unwrap()
-
                         $formattedTicket = $this->formatTicket($ticket);
                         $this->csvWriter->writeRow($formattedTicket);
                     }
@@ -70,24 +69,23 @@ class TicketManager
 
     private function formatTicket(array $ticket): array
     {
+        // TODO: Refactor code to fulfill fields' values with `must be`
         return [
             $ticket['id'],
             $ticket['description'],
             $ticket['status'],
             $ticket['priority'],
-            $ticket['assignee_id'], // agent id
-            $ticket['recipient'], // agent name
-            $ticket['recipient'], // agent email
-            $ticket['requester_id'],
-            $ticket['requester']['name'] ?? '', // Contacts API
-            $ticket['requester']['email'] ?? '', // Contacts API
+            $ticket['assignee_id'], // Agent ID
+            '', // Must be Agent name
+            '', // Must be Agent email
+            $ticket['requester_id'], // Contact ID
+            '', // Must be Contact name
+            '', // Must be Contact email
             $ticket['group_id'],
-            $ticket['group']['name'] ?? '',
-            $ticket['organization_id'],
-            $ticket['organization']['name'] ?? '',
-            implode('; ', array_map(function ($comment) {
-                return $comment['body'];
-            }, $ticket['comments'] ?? []))
+            '', // Must be Group name,
+            $ticket['organization_id'], // Company ID
+            '', // Must be Company name
+            '' // Must be Comments
         ];
     }
 }

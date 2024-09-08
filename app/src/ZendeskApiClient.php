@@ -23,13 +23,8 @@ class ZendeskApiClient
         ]);
     }
 
-    public function sendAsyncRequest(string $path, int $page, int $perPage): PromiseInterface
+    public function sendAsyncRequest(string $path): PromiseInterface
     {
-        return $this->client->getAsync($path, [
-            'query' => [
-                'page' => $page,
-                'per_page' => $perPage
-            ]
-        ]);
+        return $this->client->getAsync($path);
     }
 }
