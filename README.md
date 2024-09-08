@@ -1,7 +1,5 @@
 # Relokia Test Assignment
 
-**Important note!** I started working on script improvement in branch [`script-improvements`](https://github.com/viktorfilyk4/relokia-test-assignment/tree/script-improvements). It will process tickets concurrently using Guzzle Promises. It is not finished now (got Zendesk Rate Limit).
-
 ## Requirements
 - Docker
 - Docker Compose
