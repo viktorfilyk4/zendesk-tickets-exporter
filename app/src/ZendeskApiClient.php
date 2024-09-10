@@ -3,7 +3,9 @@
 namespace App;
 
 use GuzzleHttp\Client;
+use GuzzleHttp\Exception\GuzzleException;
 use GuzzleHttp\Promise\PromiseInterface;
+use Psr\Http\Message\ResponseInterface;
 
 class ZendeskApiClient
 {
@@ -26,5 +28,14 @@ class ZendeskApiClient
     public function sendAsyncRequest(string $path): PromiseInterface
     {
         return $this->client->getAsync($path);
+    }
+
+
+    /**
+     * @throws GuzzleException
+     */
+    public function sendRequest(string $path): ResponseInterface
+    {
+        return $this->client->get($path);
     }
 }
