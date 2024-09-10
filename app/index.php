@@ -3,6 +3,7 @@
 require '../vendor/autoload.php';
 
 use App\CSVWriter;
+use App\Logger;
 use App\TicketManager;
 use App\ZendeskApiClient;
 
@@ -24,4 +25,4 @@ $ticketManager->exportTicketsToCSV();
 
 $csvWriter->close();
 
-echo 'Script execution finished.<br>';
+Logger::log('Script execution finished.', true);

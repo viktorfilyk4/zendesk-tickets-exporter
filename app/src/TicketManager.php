@@ -1,4 +1,4 @@
-<?php
+<?php declare(strict_types=1);
 
 namespace App;
 
@@ -10,6 +10,7 @@ class TicketManager
     private ZendeskApiClient $zendeskApiClient;
     private CSVWriter $csvWriter;
     const NUMBER_OF_CONCURRENT_REQUESTS = 10;
+    const RATELIMIT_RESET = 65;
     const ASSIGN_MAPPINGS = [
         'agent' => [
             'idKey' => 'assignee_id',
@@ -49,6 +50,8 @@ class TicketManager
 
     public function exportTicketsToCSV()
     {
+        Logger::log("Writing headers to CSV file...");
+
         $headers = [
             'Ticket ID', 'Description', 'Status', 'Priority', 'Agent ID', 'Agent Name', 'Agent Email',
             'Contact ID', 'Contact Name', 'Contact Email', 'Group ID', 'Group Name', 'Company ID',
@@ -56,6 +59,8 @@ class TicketManager
         ];
 
         $this->csvWriter->writeHeaders($headers);
+
+        Logger::log("Start processing tickets...");
 
         $page = 1;
         $perPage = 100; // Zendesk limit per page
@@ -72,7 +77,9 @@ class TicketManager
             try {
                 $promisesResponses = Promise\Utils::unwrap($promises);
             } catch (\Throwable $e) {
-                echo 'Could not send requests.<br>';
+                Logger::log("Could not fetch tickets. Stop exporting tickets...");
+
+                // TODO: Recursively call this function again
                 return;
             }
 
@@ -100,7 +107,7 @@ class TicketManager
             }
         }
 
-        echo 'Tickets have been written in file.<br>';
+        Logger::log("End processing tickets...");
     }
 
     private function assignToEachTicket(string $what, array &$tickets): void
@@ -125,7 +132,10 @@ class TicketManager
         try {
             $response = $this->zendeskApiClient->sendRequest($path);
         } catch (GuzzleException $e) {
-            echo "Could not assign $what to each ticket.<br>";
+            Logger::log("Could not assign <b>$what</b> to tickets. Sleeping...");
+            sleep(self::RATELIMIT_RESET);
+
+            $this->assignToEachTicket($what, $tickets);
             return;
         }
         $decodedResponse = Utils::decodeResponse($response);
@@ -145,27 +155,32 @@ class TicketManager
 
     private function assignCommentsToEachTicket(array &$tickets): void
     {
-        $i = 0;
+        $z = 0;
 
-        foreach ($tickets as $ticket) {
-            $ticketId = $ticket['id'];
+        for ($i = 0; $i < count($tickets); $i++) {
+            $ticketId = $tickets[$i]['id'];
             $promises[] = $this->zendeskApiClient->sendAsyncRequest("tickets/$ticketId/comments");
 
             $isLastTicket = ($i === (count($tickets) - 1));
-            if ((count($promises) >= self::NUMBER_OF_CONCURRENT_REQUESTS) || $isLastTicket) {
+
+            if ((count($promises) === self::NUMBER_OF_CONCURRENT_REQUESTS) || $isLastTicket) {
                 try {
                     $promisesResponses = Promise\Utils::unwrap($promises);
                 } catch (\Throwable $e) {
-                    // TODO: Handle `429 Too Many Requests` here
-                    echo 'Could not assign comments to each ticket.<br>';
-                    return;
+                    Logger::log("Could not assign <b>comments</b> to tickets. Sleeping...");
+                    sleep(self::RATELIMIT_RESET);
+
+                    $promises = [];
+                    $i -= self::NUMBER_OF_CONCURRENT_REQUESTS;
+
+                    continue;
                 }
 
                 foreach ($promisesResponses as $response) {
                     $decodedResponse = Utils::decodeResponse($response);
                     $comments = $decodedResponse['comments'] ?? [];
-                    $tickets[$i]['comments'] = implode("\n\n", array_column($comments, 'body'));
-                    $i++;
+                    $tickets[$z]['comments'] = implode("\n\n", array_column($comments, 'body'));
+                    $z++;
                 }
 
                 $promises = [];
