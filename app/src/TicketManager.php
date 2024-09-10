@@ -2,13 +2,44 @@
 
 namespace App;
 
+use GuzzleHttp\Exception\GuzzleException;
 use GuzzleHttp\Promise;
 
 class TicketManager
 {
     private ZendeskApiClient $zendeskApiClient;
     private CSVWriter $csvWriter;
-    const NUMBER_OF_CONCURRENT_REQUESTS = 5;
+    const NUMBER_OF_CONCURRENT_REQUESTS = 10;
+    const ASSIGN_MAPPINGS = [
+        'agent' => [
+            'idKey' => 'assignee_id',
+            'responseKey' => 'users',
+            'basePath' => 'users',
+            'assignedFieldsToTicket' => 'name,email',
+            'isShowMany' => true
+        ],
+        'contact' => [
+            'idKey' => 'requester_id',
+            'responseKey' => 'users',
+            'basePath' => 'users',
+            'assignedFieldsToTicket' => 'name,email',
+            'isShowMany' => true
+        ],
+        'company' => [
+            'idKey' => 'organization_id',
+            'responseKey' => 'organizations',
+            'basePath' => 'organizations',
+            'assignedFieldsToTicket' => 'name',
+            'isShowMany' => true
+        ],
+        'group' => [
+            'idKey' => 'group_id',
+            'responseKey' => 'groups',
+            'basePath' => 'groups',
+            'assignedFieldsToTicket' => 'name',
+            'isShowMany' => false
+        ]
+    ];
 
     public function __construct(ZendeskApiClient $zendeskApiClient, CSVWriter $csvWriter)
     {
@@ -39,24 +70,29 @@ class TicketManager
             }
 
             try {
-                $promisesResults = Promise\Utils::unwrap($promises);
+                $promisesResponses = Promise\Utils::unwrap($promises);
             } catch (\Throwable $e) {
                 echo 'Could not send requests.<br>';
                 return;
             }
 
-            foreach ($promisesResults as $result) {
-                $resultContent = $result->getBody()->getContents();
-                $decodedResult = json_decode($resultContent, true);
-                $tickets = $decodedResult['tickets'] ?? [];
+            foreach ($promisesResponses as $response) {
+                $decodedResponse = Utils::decodeResponse($response);
+                $tickets = $decodedResponse['tickets'] ?? [];
 
                 if (count($tickets) > 0) {
+                    $this->assignToEachTicket('agent', $tickets);
+                    $this->assignToEachTicket('contact', $tickets);
+                    $this->assignToEachTicket('company', $tickets);
+                    $this->assignToEachTicket('group', $tickets);
+                    $this->assignCommentsToEachTicket($tickets);
+
                     foreach ($tickets as $ticket) {
                         $formattedTicket = $this->formatTicket($ticket);
                         $this->csvWriter->writeRow($formattedTicket);
                     }
                 }
-                $hasMorePages = isset($decodedResult['next_page']);
+                $hasMorePages = isset($decodedResponse['next_page']);
             }
 
             if (!$hasMorePages) {
@@ -67,25 +103,94 @@ class TicketManager
         echo 'Tickets have been written in file.<br>';
     }
 
+    private function assignToEachTicket(string $what, array &$tickets): void
+    {
+        $idKey = self::ASSIGN_MAPPINGS[$what]['idKey'];
+        $responseKey = self::ASSIGN_MAPPINGS[$what]['responseKey'];
+        $basePath = self::ASSIGN_MAPPINGS[$what]['basePath'];
+        $assignedFieldsToTicket = self::ASSIGN_MAPPINGS[$what]['assignedFieldsToTicket'];
+        $isShowMany = self::ASSIGN_MAPPINGS[$what]['isShowMany'];
+
+        if ($isShowMany) {
+            $ids = implode(',',
+                array_unique(
+                    array_column($tickets, $idKey)
+                )
+            );
+            $path = "$basePath/show_many?ids=$ids";
+        } else {
+            $path = $basePath;
+        }
+
+        try {
+            $response = $this->zendeskApiClient->sendRequest($path);
+        } catch (GuzzleException $e) {
+            echo "Could not assign $what to each ticket.<br>";
+            return;
+        }
+        $decodedResponse = Utils::decodeResponse($response);
+        $responseValues = $decodedResponse[$responseKey] ?? [];
+
+        foreach ($tickets as &$ticket) {
+            // Find `$key` by current ticket's `$idKey`
+            $key = array_search($ticket[$idKey], array_column($responseValues, 'id'));
+
+            $fieldsToAssign = explode(',', $assignedFieldsToTicket);
+
+            foreach ($fieldsToAssign as $field) {
+                $ticket[$what][$field] = $responseValues[$key][$field];
+            }
+        }
+    }
+
+    private function assignCommentsToEachTicket(array &$tickets): void
+    {
+        $i = 0;
+
+        foreach ($tickets as $ticket) {
+            $ticketId = $ticket['id'];
+            $promises[] = $this->zendeskApiClient->sendAsyncRequest("tickets/$ticketId/comments");
+
+            $isLastTicket = ($i === (count($tickets) - 1));
+            if ((count($promises) >= self::NUMBER_OF_CONCURRENT_REQUESTS) || $isLastTicket) {
+                try {
+                    $promisesResponses = Promise\Utils::unwrap($promises);
+                } catch (\Throwable $e) {
+                    // TODO: Handle `429 Too Many Requests` here
+                    echo 'Could not assign comments to each ticket.<br>';
+                    return;
+                }
+
+                foreach ($promisesResponses as $response) {
+                    $decodedResponse = Utils::decodeResponse($response);
+                    $comments = $decodedResponse['comments'] ?? [];
+                    $tickets[$i]['comments'] = implode("\n\n", array_column($comments, 'body'));
+                    $i++;
+                }
+
+                $promises = [];
+            }
+        }
+    }
+
     private function formatTicket(array $ticket): array
     {
-        // TODO: Refactor code to fulfill fields' values with `must be`
         return [
             $ticket['id'],
-            $ticket['description'],
+            $ticket['subject'], // Description
             $ticket['status'],
             $ticket['priority'],
             $ticket['assignee_id'], // Agent ID
-            '', // Must be Agent name
-            '', // Must be Agent email
+            $ticket['agent']['name'],
+            $ticket['agent']['email'],
             $ticket['requester_id'], // Contact ID
-            '', // Must be Contact name
-            '', // Must be Contact email
+            $ticket['contact']['name'],
+            $ticket['contact']['email'],
             $ticket['group_id'],
-            '', // Must be Group name,
+            $ticket['group']['name'],
             $ticket['organization_id'], // Company ID
-            '', // Must be Company name
-            '' // Must be Comments
+            $ticket['company']['name'],
+            $ticket['comments'],
         ];
     }
 }
