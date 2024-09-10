@@ -50,6 +50,8 @@ class TicketManager
 
     public function exportTicketsToCSV()
     {
+        Logger::log("Writing headers to CSV file...");
+
         $headers = [
             'Ticket ID', 'Description', 'Status', 'Priority', 'Agent ID', 'Agent Name', 'Agent Email',
             'Contact ID', 'Contact Name', 'Contact Email', 'Group ID', 'Group Name', 'Company ID',
@@ -57,6 +59,8 @@ class TicketManager
         ];
 
         $this->csvWriter->writeHeaders($headers);
+
+        Logger::log("Start processing tickets...");
 
         $page = 1;
         $perPage = 100; // Zendesk limit per page
@@ -73,7 +77,9 @@ class TicketManager
             try {
                 $promisesResponses = Promise\Utils::unwrap($promises);
             } catch (\Throwable $e) {
-                echo 'Could not fetch tickets.<br>';
+                Logger::log("Could not fetch tickets. Stop exporting tickets...");
+
+                // TODO: Recursively call this function again
                 return;
             }
 
@@ -101,7 +107,7 @@ class TicketManager
             }
         }
 
-        echo 'Tickets have been written in file.<br>';
+        Logger::log("End processing tickets...");
     }
 
     private function assignToEachTicket(string $what, array &$tickets): void
@@ -126,8 +132,9 @@ class TicketManager
         try {
             $response = $this->zendeskApiClient->sendRequest($path);
         } catch (GuzzleException $e) {
-            echo "Could not assign <b>$what</b> to tickets. Sleeping...<br>";
+            Logger::log("Could not assign <b>$what</b> to tickets. Sleeping...");
             sleep(self::RATELIMIT_RESET);
+
             $this->assignToEachTicket($what, $tickets);
             return;
         }
@@ -160,10 +167,12 @@ class TicketManager
                 try {
                     $promisesResponses = Promise\Utils::unwrap($promises);
                 } catch (\Throwable $e) {
-                    echo "Could not assign <b>comments</b> to tickets. Sleeping...<br>";
+                    Logger::log("Could not assign <b>comments</b> to tickets. Sleeping...");
                     sleep(self::RATELIMIT_RESET);
+
                     $promises = [];
                     $i -= self::NUMBER_OF_CONCURRENT_REQUESTS;
+
                     continue;
                 }
 
