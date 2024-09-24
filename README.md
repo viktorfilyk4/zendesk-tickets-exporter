@@ -1,4 +1,4 @@
-# Relokia Test Assignment
+# Zendesk Tickets Exporter
 
 ## Requirements
 - Docker
