@@ -1,5 +1,5 @@
 {
-    "name": "viktorfilyk/relokia-test-assignment",
+    "name": "viktorfilyk/zendesk-tickets-exporter",
     "require": {
         "guzzlehttp/guzzle": "^7.0",
         "ext-json": "*"

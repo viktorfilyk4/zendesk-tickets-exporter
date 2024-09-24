@@ -10,7 +10,7 @@ services:
     networks:
       - internal
   php:
-    container_name: relokia-php-fpm-app
+    container_name: php-fpm-app
     build:
       context: .
       dockerfile: php/prod.Dockerfile
